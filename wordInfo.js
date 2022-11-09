@@ -6,48 +6,60 @@ const resultsContainerElem = document.getElementById("results");
 // when someone presses enter in the search box,
 searchBoxElem.addEventListener("keydown", whenSomeKeyPressed);
 
-async function whenSomeKeyPressed(event) {
-  
+function whenSomeKeyPressed(event) {
+
   if (event.key === "Enter") {
     event.preventDefault();
-    const rhymes = await searchForRhymes(searchBoxElem.value);
-    const rhymeElements = await createRhymeElements(rhymes);
-    clearResultsElem();
-    populateResultsElem(rhymeElements);
+    searchForRhymes(searchBoxElem.value).then((results) => {
+      const rhymeElements = createRhymeElements(results);
+      clearResultsElem();
+      return rhymeElements;
+    }).then((elements) => {
+      populateResultsElem(elements);
+    });
   }
 }
 
-async function searchForRhymes(query) {
-  const rhymeResults = await fetch(
+function searchForRhymes(query) {
+  // rhymeResults ends up being truncatedTo10 after all thens execute
+  const rhymeResults = fetch(
+    // "test.json"
     `https://rhymebrain.com/talk?function=getRhymes&word=${query}`
-  );
-  const rhymeResultsJson = await rhymeResults.json();
-  const truncatedTo10 = rhymeResultsJson.slice(0, 10);
-  console.log(truncatedTo10);
-  return truncatedTo10;
-}
-
-async function createRhymeElements(rhymeResultsJson) {
-  const wordInfos = await getWordsInfos(rhymeResultsJson);
-
-  return rhymeResultsJson.map((rhymeWord, i) => {
-    let resultElem = document.createElement("div");
-    resultElem.classList.add("result");
-    resultElem.dataset.score = rhymeWord.score;
-    resultElem.append(rhymeWord.word);
-    resultElem.append(createWordInfoElements(wordInfos[i]));
-    resultElem = styleRhymeResult(resultElem);
-    return resultElem;
+  ).then((response) => {
+    return response.json();
+  }).then((rhymeResultsJson) => {
+    const truncatedTo10 = rhymeResultsJson.slice(0, 10);
+    console.log(truncatedTo10);
+    return truncatedTo10;
   });
+  return rhymeResults;
 }
 
-async function getWordsInfos(rhymes) {
-  const wordsInfos = await Promise.all(
-    rhymes.map(async (rhyme) => {
-      const wordInfo = await fetch(
+function createRhymeElements(rhymeResultsJson) {
+  const wordInfos = getWordsInfos(rhymeResultsJson).then((wordInfoArray) => {
+    return rhymeResultsJson.map((rhymeWord, i) => {
+      let resultElem = document.createElement("div");
+      resultElem.classList.add("result");
+      resultElem.dataset.score = rhymeWord.score;
+      resultElem.append(rhymeWord.word);
+      resultElem.append(createWordInfoElements(wordInfoArray[i]));
+      resultElem = styleRhymeResult(resultElem);
+      return resultElem;
+    });
+  });
+  return wordInfos;
+}
+
+function getWordsInfos(rhymes) {
+  const wordsInfos = Promise.all(
+    rhymes.map((rhyme) => {
+      const wordInfo = fetch(
+        // "details.json"
         `https://rhymebrain.com/talk?function=getWordInfo&word=${rhyme.word}`
       );
-      const wordInfoJson = await wordInfo.json();
+      const wordInfoJson = wordInfo.then((response) => {
+        return response.json();
+      });
       return wordInfoJson;
     })
   );
